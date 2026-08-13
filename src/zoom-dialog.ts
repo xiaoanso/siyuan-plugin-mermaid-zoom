@@ -30,23 +30,18 @@ export function openZoomDialog(svgElement: SVGElement, i18n: Record<string, stri
     content: `
       <div class="mermaid-zoom-overlay">
         <div class="mermaid-zoom-toolbar">
-          <button class="toolbar-btn" data-action="zoom-in" title="${i18n.zoomIn}">
-            <svg viewBox="0 0 24 24"><path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/></svg>
-            ${i18n.zoomIn}
+          <button class="toolbar-btn icon-only" data-action="zoom-in" title="${i18n.zoomIn}">
+            <svg viewBox="0 0 24 24" fill="currentColor"><path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/></svg>
           </button>
-          <button class="toolbar-btn" data-action="zoom-out" title="${i18n.zoomOut}">
-            <svg viewBox="0 0 24 24"><path d="M19 13H5v-2h14v2z"/></svg>
-            ${i18n.zoomOut}
+          <button class="toolbar-btn icon-only" data-action="zoom-out" title="${i18n.zoomOut}">
+            <svg viewBox="0 0 24 24" fill="currentColor"><path d="M19 13H5v-2h14v2z"/></svg>
           </button>
           <span class="zoom-level">100%</span>
-          <button class="toolbar-btn" data-action="reset" title="${i18n.resetZoom}">
-            <svg viewBox="0 0 24 24"><path d="M12 5V1L7 6l5 5V7c3.31 0 6 2.69 6 6s-2.69 6-6 6-6-2.69-6-6H4c0 4.42 3.58 8 8 8s8-3.58 8-8-3.58-8-8-8z"/></svg>
-            ${i18n.resetZoom}
+          <button class="toolbar-btn icon-only" data-action="reset" title="${i18n.resetZoom}">
+            <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 5V1L7 6l5 5V7c3.31 0 6 2.69 6 6s-2.69 6-6 6-6-2.69-6-6H4c0 4.42 3.58 8 8 8s8-3.58 8-8-3.58-8-8-8z"/></svg>
           </button>
-          <div class="toolbar-separator"></div>
-          <button class="toolbar-btn" data-action="export-png" title="${i18n.exportPng}">
-            <svg viewBox="0 0 24 24"><path d="M19 9h-4V3H9v6H5l7 7 7-7zM5 18v2h14v-2H5z"/></svg>
-            ${i18n.exportPng}
+          <button class="toolbar-btn icon-only" data-action="export-png" title="${i18n.exportPng}">
+            <svg viewBox="0 0 24 24" fill="currentColor"><path d="M19 9h-4V3H9v6H5l7 7 7-7zM5 18v2h14v-2H5z"/></svg>
           </button>
         </div>
         <div class="mermaid-zoom-container">
