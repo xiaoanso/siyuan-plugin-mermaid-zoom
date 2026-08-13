@@ -7,13 +7,19 @@
     "dev": "webpack --mode development",
     "build": "webpack --mode production"
   },
-  "keywords": ["siyuan", "plugin", "mermaid", "zoom"],
+  "keywords": [
+    "siyuan",
+    "plugin",
+    "mermaid",
+    "zoom"
+  ],
   "author": "shaohang.wu",
   "license": "MIT",
   "packageManager": "pnpm@10.11.0",
   "devDependencies": {
     "copy-webpack-plugin": "^13.0.1",
     "css-loader": "^7.1.3",
+    "dotenv": "^17.4.2",
     "esbuild-loader": "^4.4.2",
     "mini-css-extract-plugin": "^2.10.0",
     "sass": "^1.97.3",

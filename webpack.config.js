@@ -1,3 +1,5 @@
+require("dotenv").config();
+
 const path = require("path");
 const fs = require("fs");
 const webpack = require("webpack");
@@ -8,6 +10,24 @@ const ZipPlugin = require("zip-webpack-plugin");
 
 module.exports = (env, argv) => {
   const isPro = argv.mode === "production";
+  
+  // 读取环境变量
+  const pluginInfo = JSON.parse(fs.readFileSync("plugin.json", "utf-8"));
+  const siyuanWorkspacePath = process.env.SIYUAN_WORKSPACE_PATH;
+  
+  // 开发模式输出目录：优先思源插件目录，否则回退到当前目录
+  let outputPath = path.resolve(__dirname);
+  if (!isPro && siyuanWorkspacePath) {
+    const outputDir = `${siyuanWorkspacePath}/data/plugins/${pluginInfo.name}`;
+    outputPath = path.resolve(outputDir);
+    console.log(`\n🔄 Dev mode: Watching SiYuan plugin directory`);
+    console.log(`   Plugin: ${pluginInfo.name}`);
+    console.log(`   Output: ${outputDir}\n`);
+  } else if (!isPro) {
+    console.log(`\n⚠️  SIYUAN_WORKSPACE_PATH not set. Using local directory.`);
+    console.log(`   Set SIYUAN_WORKSPACE_PATH in .env for hot-reload.\n`);
+  }
+  
   const plugins = [
     new MiniCssExtractPlugin({
       filename: isPro ? "dist/index.css" : "index.css",
@@ -34,7 +54,6 @@ module.exports = (env, argv) => {
           { from: "icon.png", to: "./dist/" },
           { from: "README*.md", to: "./dist/" },
           { from: "plugin.json", to: "./dist/" },
-          { from: "src/i18n/", to: "./dist/i18n/" },
         ],
       })
     );
@@ -49,19 +68,29 @@ module.exports = (env, argv) => {
       })
     );
   } else {
+    // 开发模式：复制静态文件到思源插件目录（不需要i18n，使用this.i18n）
     plugins.push(
       new CopyPlugin({
-        patterns: [{ from: "src/i18n/", to: "./i18n/" }],
+        patterns: [
+          { from: "preview.png", to: "./" },
+          { from: "icon.png", to: "./" },
+          { from: "README*.md", to: "./" },
+          { from: "plugin.json", to: "./" },
+        ],
       })
     );
   }
   return {
     mode: argv.mode || "development",
     watch: !isPro,
+    watchOptions: {
+      ignored: /node_modules/,
+      aggregateTimeout: 300,
+    },
     devtool: isPro ? false : "eval",
     output: {
       filename: "[name].js",
-      path: path.resolve(__dirname),
+      path: outputPath,
       libraryTarget: "commonjs2",
       library: {
         type: "commonjs2",
