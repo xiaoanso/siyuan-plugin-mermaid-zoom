@@ -78,6 +78,8 @@ module.exports = (env, argv) => {
           { from: "icon.png", to: "./" },
           { from: "README*.md", to: "./" },
           { from: "plugin.json", to: "./" },
+          // 在开发模式也复制 i18n 文件，以便输出目录中包含本地化资源
+          { from: "src/i18n/", to: "./i18n/" },
         ],
       })
     );
