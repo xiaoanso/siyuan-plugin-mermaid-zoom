@@ -54,6 +54,8 @@ module.exports = (env, argv) => {
           { from: "icon.png", to: "./dist/" },
           { from: "README*.md", to: "./dist/" },
           { from: "plugin.json", to: "./dist/" },
+          // Copy i18n source files into the distribution so runtime can load localized strings
+          { from: "src/i18n/", to: "./dist/i18n/" },
         ],
       })
     );
