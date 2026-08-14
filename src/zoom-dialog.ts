@@ -53,6 +53,30 @@ export function openZoomDialog(svgElement: SVGElement, i18n: Record<string, stri
     height: "85vh",
   });
 
+  // 如果 Dialog 的 header 存在（SiYuan 的可移动/调整大小 header）
+  // 则将标题设置为预览标题，并在右上角插入一个关闭按钮，点击时销毁弹窗
+  const headerEl = dialog.element.querySelector('.resize__move.b3-dialog__header') as HTMLElement | null;
+  if (headerEl) {
+    // 设置标题文本
+    headerEl.textContent = i18n.previewTitle || '图表预览';
+    // 确保 header 是相对定位以便绝对定位的关闭按钮能放置在右上角
+    if (!headerEl.style.position) headerEl.style.position = 'relative';
+
+    const headerClose = document.createElement('button');
+    headerClose.className = 'mermaid-zoom-close';
+    headerClose.setAttribute('aria-label', i18n.close || 'Close');
+    headerClose.title = i18n.close || 'Close';
+    // 最小内联样式以保证可见且不依赖外部样式
+    headerClose.style.cssText = 'position:absolute;right:8px;top:50%;transform:translateY(-50%);background:transparent;border:0;padding:6px;cursor:pointer;color:inherit;';
+    headerClose.innerHTML = '<svg viewBox="0 0 24 24" fill="currentColor" width="18" height="18"><path d="M18.3 5.71L12 12l6.3 6.29-1.41 1.42L10.59 13.41 4.29 19.71 2.88 18.3 9.18 12 2.88 5.71 4.29 4.29 10.59 10.59 16.88 4.29z"/></svg>';
+    headerClose.addEventListener('click', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      dialog.destroy();
+    });
+    headerEl.appendChild(headerClose);
+  }
+
   // 将 SVG 放入容器
   const wrapper = dialog.element.querySelector(".mermaid-zoom-svg-wrapper") as HTMLElement;
   const container = dialog.element.querySelector(".mermaid-zoom-container") as HTMLElement;
@@ -150,6 +174,7 @@ export function openZoomDialog(svgElement: SVGElement, i18n: Record<string, stri
       }
     });
   });
+
 
   // ---- ESC 关闭弹窗 ----
   const handleKeyDown = (e: KeyboardEvent) => {
