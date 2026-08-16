@@ -24,7 +24,9 @@ export function openZoomDialog(svgElement: SVGElement, i18n: Record<string, stri
   svgClone.style.maxWidth = "none";
   svgClone.style.maxHeight = "none";
 
-  // 创建弹窗
+  const cleanups: Array<() => void> = [];
+
+  // 创建弹窗（清理走官方 destroyCallback）
   const dialog = new Dialog({
     title: i18n.previewTitle || "Diagram Preview",
     content: `
@@ -51,25 +53,25 @@ export function openZoomDialog(svgElement: SVGElement, i18n: Record<string, stri
     `,
     width: "90vw",
     height: "85vh",
+    destroyCallback: () => {
+      cleanups.forEach((fn) => fn());
+    },
   });
 
-  // 如果 Dialog 的 header 存在（SiYuan 的可移动/调整大小 header）
-  // 则将标题设置为预览标题，并在右上角插入一个关闭按钮，点击时销毁弹窗
-  const headerEl = dialog.element.querySelector('.resize__move.b3-dialog__header') as HTMLElement | null;
+  // 桌面端官方 .b3-dialog__close 默认隐藏，在表头右上角补关闭按钮（不覆盖 title 文本）
+  const headerEl = dialog.element.querySelector(
+    ".b3-dialog__header"
+  ) as HTMLElement | null;
   if (headerEl) {
-    // 设置标题文本
-    headerEl.textContent = i18n.previewTitle || '图表预览';
-    // 确保 header 是相对定位以便绝对定位的关闭按钮能放置在右上角
-    if (!headerEl.style.position) headerEl.style.position = 'relative';
-
-    const headerClose = document.createElement('button');
-    headerClose.className = 'mermaid-zoom-close';
-    headerClose.setAttribute('aria-label', i18n.close || 'Close');
-    headerClose.title = i18n.close || 'Close';
-    // 最小内联样式以保证可见且不依赖外部样式
-    headerClose.style.cssText = 'position:absolute;right:8px;top:50%;transform:translateY(-50%);background:transparent;border:0;padding:6px;cursor:pointer;color:inherit;';
-    headerClose.innerHTML = '<svg viewBox="0 0 24 24" fill="currentColor" width="18" height="18"><path d="M18.3 5.71L12 12l6.3 6.29-1.41 1.42L10.59 13.41 4.29 19.71 2.88 18.3 9.18 12 2.88 5.71 4.29 4.29 10.59 10.59 16.88 4.29z"/></svg>';
-    headerClose.addEventListener('click', (e) => {
+    headerEl.classList.add("mermaid-zoom-dialog-header");
+    const headerClose = document.createElement("button");
+    headerClose.type = "button";
+    headerClose.className = "mermaid-zoom-header-close";
+    headerClose.title = i18n.close || "Close";
+    headerClose.setAttribute("aria-label", i18n.close || "Close");
+    headerClose.innerHTML =
+      '<svg viewBox="0 0 24 24" fill="currentColor" width="18" height="18"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>';
+    headerClose.addEventListener("click", (e) => {
       e.preventDefault();
       e.stopPropagation();
       dialog.destroy();
@@ -117,6 +119,26 @@ export function openZoomDialog(svgElement: SVGElement, i18n: Record<string, stri
     applyTransform();
   }
 
+  const handleMouseMove = (e: MouseEvent) => {
+    if (!state.isDragging) return;
+    state.translateX = e.clientX - state.startX;
+    state.translateY = e.clientY - state.startY;
+    applyTransform();
+  };
+
+  const handleMouseUp = () => {
+    state.isDragging = false;
+    container.classList.remove("is-grabbing");
+  };
+
+  const handleKeyDown = (e: KeyboardEvent) => {
+    if (e.key === "Escape") {
+      e.preventDefault();
+      e.stopPropagation();
+      dialog.destroy();
+    }
+  };
+
   // ---- 鼠标滚轮缩放 ----
   container.addEventListener("wheel", (e: WheelEvent) => {
     e.preventDefault();
@@ -135,21 +157,13 @@ export function openZoomDialog(svgElement: SVGElement, i18n: Record<string, stri
     e.preventDefault();
   });
 
-  const handleMouseMove = (e: MouseEvent) => {
-    if (!state.isDragging) return;
-    state.translateX = e.clientX - state.startX;
-    state.translateY = e.clientY - state.startY;
-    applyTransform();
-  };
-
-  const handleMouseUp = () => {
-    state.isDragging = false;
-    container.classList.remove("is-grabbing");
-  };
-
   // 监听 document 级别以处理鼠标移出容器的情况
   document.addEventListener("mousemove", handleMouseMove);
   document.addEventListener("mouseup", handleMouseUp);
+  cleanups.push(() => {
+    document.removeEventListener("mousemove", handleMouseMove);
+    document.removeEventListener("mouseup", handleMouseUp);
+  });
 
   // ---- 工具栏按钮 ----
   dialog.element.querySelectorAll(".toolbar-btn").forEach((btn) => {
@@ -175,25 +189,13 @@ export function openZoomDialog(svgElement: SVGElement, i18n: Record<string, stri
     });
   });
 
-
-  // ---- ESC 关闭弹窗 ----
-  const handleKeyDown = (e: KeyboardEvent) => {
-    if (e.key === "Escape") {
-      e.preventDefault();
-      e.stopPropagation();
-      dialog.destroy();
-    }
-  };
-  document.addEventListener("keydown", handleKeyDown, true);
-
-  // ---- 弹窗销毁时清理 ----
-  const originalDestroy = dialog.destroy.bind(dialog);
-  dialog.destroy = (options?: any) => {
-    document.removeEventListener("mousemove", handleMouseMove);
-    document.removeEventListener("mouseup", handleMouseUp);
-    document.removeEventListener("keydown", handleKeyDown, true);
-    originalDestroy(options);
-  };
+  // ---- ESC 关闭（挂在 dialog.element，并聚焦以便接收键盘事件）----
+  dialog.element.tabIndex = -1;
+  dialog.element.addEventListener("keydown", handleKeyDown);
+  cleanups.push(() => {
+    dialog.element.removeEventListener("keydown", handleKeyDown);
+  });
+  dialog.element.focus();
 }
 
 /**

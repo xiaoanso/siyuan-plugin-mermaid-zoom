@@ -33,12 +33,46 @@
 .protyle-wysiwyg [data-subtype="mermaid"],
 .protyle-wysiwyg [data-subtype="graphviz"],
 .protyle-wysiwyg [data-subtype="plantuml"] {
+  position: relative;
+
   &:hover .mermaid-zoom-btn {
     opacity: 1;
   }
 }
 
 /* ========== 全屏预览弹窗 ========== */
+.mermaid-zoom-dialog-header {
+  position: relative;
+  padding-right: 40px !important;
+}
+
+.mermaid-zoom-header-close {
+  position: absolute;
+  right: 8px;
+  top: 50%;
+  transform: translateY(-50%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border: 0;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--b3-theme-on-background);
+  cursor: pointer;
+
+  &:hover {
+    background: var(--b3-theme-surface-lighter, var(--b3-list-hover));
+  }
+
+  svg {
+    display: block;
+    fill: currentColor;
+  }
+}
+
 .mermaid-zoom-overlay {
   position: relative;
   width: 100%;
