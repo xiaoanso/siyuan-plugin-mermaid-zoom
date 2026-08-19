@@ -27,26 +27,17 @@ const CHART_BLOCK_SELECTOR = SUPPORTED_SUBTYPES.map(
 const RENDER_CONTAINER_SELECTOR = 'div[spin="1"]';
 
 /**
- * 从图表块中查找真正的图表 SVG 或 object（排除工具栏中的图标 SVG）
- * 思源的图表渲染结果在 div[spin="1"] 容器内，
- * Mermaid/Graphviz 返回 <svg>，PlantUML 返回 <object type="image/svg+xml">
+ * 从图表块中查找真正的图表 SVG（排除工具栏 / 放大按钮中的图标 SVG）
+ * 思源的图表渲染结果在 div[spin="1"] 容器内：
+ * Mermaid/Graphviz 返回 <svg>，PlantUML 返回 <object type="image/svg+xml">（不含 light-DOM svg）
  */
 function findChartSvg(block: Element): SVGElement | null {
-  // 优先从渲染容器 div[spin="1"] 中查找
   const renderContainer = block.querySelector(RENDER_CONTAINER_SELECTOR);
-  if (renderContainer) {
-    // 查找 SVG
-    const svg = renderContainer.querySelector("svg");
-    if (svg) return svg;
-  }
-  // 兜底：遍历所有 SVG，排除 .protyle-action 和 .mermaid-zoom-btn 内的
-  const allSvgs = block.querySelectorAll("svg");
-  for (const svg of allSvgs) {
-    if (!svg.closest(".protyle-action") && !svg.closest(".mermaid-zoom-btn")) {
-      return svg;
-    }
-  }
-  return null;
+  if (!renderContainer) return null;
+  const svg = renderContainer.querySelector("svg");
+  if (!svg) return null;
+  if (svg.closest(".protyle-icons") || svg.closest(".mermaid-zoom-btn")) return null;
+  return svg;
 }
 
 /**
@@ -69,32 +60,62 @@ function findChartObject(block: Element): HTMLObjectElement | null {
   return null;
 }
 
+function applyObjectSize(svg: SVGElement, objectEl: HTMLObjectElement): SVGElement {
+  if (objectEl.width) svg.setAttribute("width", String(objectEl.width));
+  if (objectEl.height) svg.setAttribute("height", String(objectEl.height));
+  return svg;
+}
+
+function parseSvgMarkup(svgText: string, objectEl: HTMLObjectElement): SVGElement | null {
+  const parser = new DOMParser();
+  const doc = parser.parseFromString(svgText, "image/svg+xml");
+  const svg = doc.querySelector("svg");
+  if (!svg) return null;
+  return applyObjectSize(svg.cloneNode(true) as SVGElement, objectEl);
+}
+
+function loadDiagramImage(src: string): Promise<HTMLImageElement> {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    img.crossOrigin = "anonymous";
+    img.onload = () => resolve(img);
+    img.onerror = () => reject(new Error("image load failed"));
+    img.src = src;
+  });
+}
+
 /**
- * 从 object 标签获取 SVG 元素
- * PlantUML 返回的 data URL 是 SVG XML，需要解析
+ * 从 PlantUML 的 <object> 取出可预览元素。
+ * 同源可走 contentDocument；跨域（plantuml.com）必须 omit credentials，
+ * 因为对方返回 Access-Control-Allow-Origin: *，不能搭配 credentials: include。
  */
-async function getSvgFromObject(objectEl: HTMLObjectElement): Promise<SVGElement | null> {
+async function getPreviewFromObject(
+  objectEl: HTMLObjectElement
+): Promise<SVGElement | HTMLImageElement | null> {
   try {
-    const dataUrl = objectEl.data;
-    if (!dataUrl) return null;
-
-    const response = await fetch(dataUrl, { credentials: "include" });
-    if (!response.ok) return null;
-
-    const svgText = await response.text();
-    const parser = new DOMParser();
-    const doc = parser.parseFromString(svgText, "image/svg+xml");
-    const svg = doc.querySelector("svg");
-
-    if (svg) {
-      // 复制 SVG 并设置尺寸
-      const newSvg = svg.cloneNode(true) as SVGElement;
-      // 从 object 标签继承尺寸
-      if (objectEl.width) newSvg.setAttribute("width", String(objectEl.width));
-      if (objectEl.height) newSvg.setAttribute("height", String(objectEl.height));
-      return newSvg;
+    const nestedSvg = objectEl.contentDocument?.querySelector("svg");
+    if (nestedSvg) {
+      return applyObjectSize(nestedSvg.cloneNode(true) as SVGElement, objectEl);
     }
-    return null;
+  } catch {
+    // 跨域 object 读取 contentDocument 会抛错，继续走 fetch / img
+  }
+
+  const dataUrl = objectEl.getAttribute("data") || objectEl.data;
+  if (!dataUrl) return null;
+
+  try {
+    const response = await fetch(dataUrl, { credentials: "omit", mode: "cors" });
+    if (response.ok) {
+      const svg = parseSvgMarkup(await response.text(), objectEl);
+      if (svg) return svg;
+    }
+  } catch (error) {
+    console.warn("[mermaid-zoom] fetch object SVG failed, fallback to img:", error);
+  }
+
+  try {
+    return await loadDiagramImage(dataUrl);
   } catch (error) {
     console.error("[mermaid-zoom] Failed to load SVG from object:", error);
     return null;
@@ -116,9 +137,9 @@ async function openPreviewFromBlock(
 
   const objectEl = findChartObject(block);
   if (objectEl) {
-    const loadedSvg = await getSvgFromObject(objectEl);
-    if (loadedSvg) {
-      openZoomDialog(loadedSvg, i18n);
+    const preview = await getPreviewFromObject(objectEl);
+    if (preview) {
+      openZoomDialog(preview, i18n);
       return true;
     }
     showMessage(i18n.loadFailed || "Failed to load diagram");

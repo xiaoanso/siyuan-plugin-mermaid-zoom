@@ -12,17 +12,19 @@ interface ZoomState {
 /**
  * 打开全屏放大预览弹窗
  */
-export function openZoomDialog(svgElement: SVGElement, i18n: Record<string, string>) {
-  // 克隆 SVG
-  const svgClone = svgElement.cloneNode(true) as SVGElement;
+export function openZoomDialog(
+  chartElement: SVGElement | HTMLImageElement,
+  i18n: Record<string, string>
+) {
+  const previewEl = chartElement.cloneNode(true) as SVGElement | HTMLImageElement;
 
   // 移除可能的尺寸限制，使其可自由缩放
-  svgClone.removeAttribute("width");
-  svgClone.removeAttribute("height");
-  svgClone.style.width = "auto";
-  svgClone.style.height = "auto";
-  svgClone.style.maxWidth = "none";
-  svgClone.style.maxHeight = "none";
+  previewEl.removeAttribute("width");
+  previewEl.removeAttribute("height");
+  previewEl.style.width = "auto";
+  previewEl.style.height = "auto";
+  previewEl.style.maxWidth = "none";
+  previewEl.style.maxHeight = "none";
 
   const cleanups: Array<() => void> = [];
 
@@ -83,7 +85,7 @@ export function openZoomDialog(svgElement: SVGElement, i18n: Record<string, stri
   const wrapper = dialog.element.querySelector(".mermaid-zoom-svg-wrapper") as HTMLElement;
   const container = dialog.element.querySelector(".mermaid-zoom-container") as HTMLElement;
   const zoomLevelEl = dialog.element.querySelector(".zoom-level") as HTMLElement;
-  wrapper.appendChild(svgClone);
+  wrapper.appendChild(previewEl);
 
   // 缩放/拖拽状态
   const state: ZoomState = {
@@ -183,7 +185,7 @@ export function openZoomDialog(svgElement: SVGElement, i18n: Record<string, stri
           applyTransform();
           break;
         case "export-png":
-          exportSvgAsPng(svgClone);
+          exportChartAsPng(previewEl);
           break;
       }
     });
@@ -198,38 +200,46 @@ export function openZoomDialog(svgElement: SVGElement, i18n: Record<string, stri
   dialog.element.focus();
 }
 
+function downloadPngBlob(blob: Blob) {
+  const pngUrl = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = pngUrl;
+  a.download = `diagram-${Date.now()}.png`;
+  a.click();
+  URL.revokeObjectURL(pngUrl);
+}
+
+function rasterizeImage(img: HTMLImageElement) {
+  const scale = 2;
+  const canvas = document.createElement("canvas");
+  canvas.width = img.width * scale;
+  canvas.height = img.height * scale;
+  const ctx = canvas.getContext("2d");
+  if (!ctx) return;
+  ctx.scale(scale, scale);
+  ctx.drawImage(img, 0, 0);
+  canvas.toBlob((blob) => {
+    if (blob) downloadPngBlob(blob);
+  }, "image/png");
+}
+
 /**
- * 将 SVG 导出为 PNG 并下载
+ * 将预览图导出为 PNG 并下载
  */
-function exportSvgAsPng(svgElement: SVGElement) {
-  const svgData = new XMLSerializer().serializeToString(svgElement);
+function exportChartAsPng(chartElement: SVGElement | HTMLImageElement) {
+  if (chartElement instanceof HTMLImageElement) {
+    rasterizeImage(chartElement);
+    return;
+  }
+
+  const svgData = new XMLSerializer().serializeToString(chartElement);
   const svgBlob = new Blob([svgData], { type: "image/svg+xml;charset=utf-8" });
   const url = URL.createObjectURL(svgBlob);
 
   const img = new Image();
   img.onload = () => {
-    // 2倍分辨率以保证清晰度
-    const scale = 2;
-    const canvas = document.createElement("canvas");
-    canvas.width = img.width * scale;
-    canvas.height = img.height * scale;
-
-    const ctx = canvas.getContext("2d");
-    if (!ctx) return;
-    ctx.scale(scale, scale);
-    ctx.drawImage(img, 0, 0);
-
-    canvas.toBlob((blob) => {
-      if (!blob) return;
-      const pngUrl = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = pngUrl;
-      a.download = `diagram-${Date.now()}.png`;
-      a.click();
-
-      URL.revokeObjectURL(pngUrl);
-      URL.revokeObjectURL(url);
-    }, "image/png");
+    rasterizeImage(img);
+    URL.revokeObjectURL(url);
   };
   img.src = url;
 }

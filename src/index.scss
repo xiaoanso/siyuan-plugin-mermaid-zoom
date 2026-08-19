@@ -164,7 +164,8 @@
     transform-origin: center center;
     transition: none;
 
-    svg {
+    svg,
+    img {
       max-width: none;
       max-height: none;
     }
